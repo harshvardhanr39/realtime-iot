@@ -1,0 +1,20 @@
+SHELL := /bin/bash
+
+up:
+\tdocker compose -f docker/docker-compose.yml up -d
+
+down:
+\tdocker compose -f docker/docker-compose.yml down -v
+
+logs:
+\tdocker compose -f docker/docker-compose.yml logs -f
+
+topics:
+\tbash scripts/create_kafka_topics.sh
+
+fmt:
+\tblack .
+\truff check --fix .
+
+test:
+\tpytest -q

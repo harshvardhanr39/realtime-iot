@@ -1,0 +1,13 @@
+# runtime
+requests
+python-dotenv
+kafka-python
+pydantic>=2
+boto3
+pyspark>=3.5,<3.6
+streamlit
+
+# dev
+black
+ruff
+pytest

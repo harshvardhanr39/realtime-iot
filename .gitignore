@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+# IDE
+.vscode/
+.idea/
+# Data & logs
+data/
+logs/
+# Spark checkpoints
+.checkpoints/
+# macOS
+.DS_Store
