@@ -18,6 +18,8 @@ services:
       - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=1
       - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
       - KAFKA_CFG_GROUP_INITIAL_REBALANCE_DELAY_MS=0
+      - KAFKA_CFG_DELETE_TOPIC_ENABLE=true
+
     healthcheck:
       test: ["CMD", "bash", "-c", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
       interval: 10s
@@ -38,11 +40,13 @@ services:
   dynamodb:
     image: amazon/dynamodb-local:2.5.2
     container_name: dynamodb
+    user: "0:0"  # run as root to avoid permission quirks
     command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
     ports:
       - "8000:8000"
     volumes:
-      - ddb-data:/home/dynamodblocal/data
+      - ~/.local/share/dynamodb/data:/home/dynamodblocal/data
+
 
 volumes:
   ddb-data:

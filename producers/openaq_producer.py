@@ -26,6 +26,8 @@ RAW_TOPIC = os.getenv("RAW_TOPIC", "raw.openaq")
 STATE_PATH = pathlib.Path("data/state/openaq_cursors.json")
 STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+LAT, LONG = map(float, (x.strip() for x in COORDS.split(",")))
+
 SESSION = requests.Session()
 if API_KEY:
     SESSION.headers.update({"X-API-Key": API_KEY})
@@ -100,9 +102,11 @@ def discover_locations(params_ids: Optional[List[int]]) -> List[Dict]:
     q = {"limit": 1000, "page": 1}
     if BBOX:
         q["bbox"] = BBOX
+        LOG.info("Using bounding box %s", BBOX)
     elif COORDS:
         q["coordinates"] = COORDS
         q["radius"] = RADIUS
+        
     if params_ids:
         q["parameters_id"] = ",".join(map(str, params_ids))
     results = []
@@ -144,7 +148,8 @@ def iter_measurements(sensor_id: int, since_iso: Optional[str]):
         q["page"] += 1
 
 def parse_event(m: Dict, sensor_id: int, location_id: Optional[int]) -> Dict:
-    dto = m.get("datetimeTo") or m.get("datetimeFrom") or {}
+    period = m.get("period")
+    dto = period.get("datetimeTo") or period.get("datetimeFrom") or {}
     utc = (dto.get("utc") if isinstance(dto, dict) else None)
     local = (dto.get("local") if isinstance(dto, dict) else None)
     coords = m.get("coordinates") or {}
@@ -163,8 +168,8 @@ def parse_event(m: Dict, sensor_id: int, location_id: Optional[int]) -> Dict:
         "datetime_utc": utc,
         "datetime_local": local,
         "coordinates": {
-            "lat": coords.get("latitude"),
-            "lon": coords.get("longitude"),
+            "lat": coords.get("latitude", LAT),
+            "lon": coords.get("longitude", LONG),
         },
         "ingested_at_utc": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
     }
@@ -203,13 +208,14 @@ def main():
     state = load_state()
     default_since = (dt.datetime.utcnow() - dt.timedelta(hours=BOOTSTRAP_HOURS)).replace(microsecond=0).isoformat() + "Z"
     offset = int(state.get("_offset", "0")) if all_sensor_ids else 0
-
+    
+       
     while True:
         if not all_sensor_ids:
             LOG.warning("No sensors discovered in current scope.")
             time.sleep(POLL_SECONDS)
             continue
-
+             
         # Rotate a subset of sensors per cycle
         end = min(offset + MAX_SENSORS_PER_CYCLE, len(all_sensor_ids))
         batch = all_sensor_ids[offset:end]
@@ -218,7 +224,7 @@ def main():
             end = min(MAX_SENSORS_PER_CYCLE, len(all_sensor_ids))
             batch = all_sensor_ids[:end]
         next_offset = (end) % len(all_sensor_ids)
-
+        
         sent, sensors_with_data = 0, 0
         for sid in batch:
             since = state.get(str(sid), default_since)
